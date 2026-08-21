@@ -27,7 +27,7 @@ private struct DashboardView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     HeaderView(lastUpdated: monitor.lastUpdated)
-                    ReadinessCard(results: monitor.results, scanning: monitor.isScanning) {
+                    ReadinessCard(score: monitor.careScore, scanning: monitor.isScanning) {
                         monitor.refresh()
                     }
                     LazyVStack(spacing: 12) {
@@ -49,6 +49,7 @@ private struct DashboardView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { monitor.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                        .accessibilityLabel("Refresh device check")
                 }
             }
         }
@@ -80,24 +81,16 @@ private struct HeaderView: View {
 }
 
 private struct ReadinessCard: View {
-    let results: [CareResult]
+    let score: CareScore
     let scanning: Bool
     let refresh: () -> Void
 
-    private var score: Int {
-        guard !results.isEmpty else { return 0 }
-        let values = results.map { result -> Int in
-            switch result.status {
-            case .good: return 100
-            case .attention: return 70
-            case .unavailable: return 45
-            }
-        }
-        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
+    private var accent: Color {
+        score.status == .good ? .cyan : .yellow
     }
 
     private var scoreLabel: String {
-        switch score {
+        switch score.value {
         case 90...: return "Looking good"
         case 70..<90: return "Needs attention"
         default: return "Check recommended"
@@ -108,17 +101,22 @@ private struct ReadinessCard: View {
         VStack(spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("CARE READINESS").font(.caption.weight(.bold)).foregroundStyle(.cyan)
-                    Text("\(score)%").font(.system(size: 54, weight: .black, design: .rounded))
-                    Text(scoreLabel).font(.caption).foregroundStyle(.secondary)
+                    Text("CARE READINESS").font(.caption.weight(.bold)).foregroundStyle(accent)
+                    Text("\(score.value)%").font(.system(size: 54, weight: .black, design: .rounded))
+                    Text(scoreLabel).font(.caption.weight(.semibold)).foregroundStyle(accent)
+                    Text(score.summary).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 ZStack {
                     Circle().stroke(.white.opacity(0.12), lineWidth: 12)
-                    Circle().trim(from: 0, to: Double(score) / 100).stroke(.cyan, style: StrokeStyle(lineWidth: 12, lineCap: .round)).rotationEffect(.degrees(-90))
-                    Image(systemName: "iphone.gen3").font(.title).foregroundStyle(.white)
+                    Circle().trim(from: 0, to: Double(score.value) / 100).stroke(accent, style: StrokeStyle(lineWidth: 12, lineCap: .round)).rotationEffect(.degrees(-90))
+                    Image(systemName: score.status == .good ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                        .font(.title)
+                        .foregroundStyle(.white)
                 }
                 .frame(width: 110, height: 110)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Care readiness \(score.value) percent, \(scoreLabel)")
             }
             Button(action: refresh) {
                 Label(scanning ? "Scanning…" : "Run safe check", systemImage: scanning ? "hourglass" : "checkmark.shield.fill")
