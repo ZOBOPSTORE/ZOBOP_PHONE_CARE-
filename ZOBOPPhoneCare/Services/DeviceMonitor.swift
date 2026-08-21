@@ -31,8 +31,8 @@ final class DeviceMonitor: ObservableObject {
             .volumeAvailableCapacityForImportantUsageKey,
             .volumeTotalCapacityKey
         ])
-        let free = values?.volumeAvailableCapacityForImportantUsage
-        let total = values?.volumeTotalCapacity
+        let free = values?.volumeAvailableCapacityForImportantUsage.map(Int64.init)
+        let total = values?.volumeTotalCapacity.map(Int64.init)
         let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
 
         snapshot = HealthSnapshot(
