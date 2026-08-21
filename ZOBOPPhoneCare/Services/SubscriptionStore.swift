@@ -12,10 +12,34 @@ final class SubscriptionStore: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
+    private var updatesTask: Task<Void, Never>?
+    private var didStart = false
+
     var isPremium: Bool { !purchasedProductIDs.isEmpty }
 
+    deinit { updatesTask?.cancel() }
+
+    func start() async {
+        guard !didStart else { return }
+        didStart = true
+        updatesTask = Task { [weak self] in
+            for await result in Transaction.updates {
+                guard let self else { return }
+                do {
+                    let transaction = try self.checkVerified(result)
+                    if Self.productIDs.contains(transaction.productID) {
+                        await self.refreshEntitlements()
+                    }
+                    await transaction.finish()
+                } catch {
+                    self.errorMessage = "A purchase could not be verified."
+                }
+            }
+        }
+        await load()
+    }
+
     func load() async {
-        guard products.isEmpty else { return }
         isLoading = true
         defer { isLoading = false }
         do {
