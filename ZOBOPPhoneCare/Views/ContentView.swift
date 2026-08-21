@@ -22,20 +22,23 @@ struct ContentView: View {
 private struct DashboardView: View {
     @EnvironmentObject private var monitor: DeviceMonitor
 
+    private var actions: [CareAction] {
+        CareActionPlan.actions(for: monitor.snapshot, score: monitor.careScore)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
                     HeaderView(lastUpdated: monitor.lastUpdated)
-                    ReadinessCard(score: monitor.careScore, scanning: monitor.isScanning) {
-                        monitor.refresh()
-                    }
+                    ReadinessCard(score: monitor.careScore, scanning: monitor.isScanning) { monitor.refresh() }
+
+                    ActionPlanSection(actions: actions)
+
                     LazyVStack(spacing: 12) {
                         ForEach(monitor.results) { result in
-                            NavigationLink(value: result) {
-                                CareCard(result: result)
-                            }
-                            .buttonStyle(.plain)
+                            NavigationLink(value: result) { CareCard(result: result) }
+                                .buttonStyle(.plain)
                         }
                     }
                 }
@@ -43,9 +46,7 @@ private struct DashboardView: View {
             }
             .background(ZobopTheme.background.ignoresSafeArea())
             .navigationTitle("ZOBOP iPhone Care")
-            .navigationDestination(for: CareResult.self) { result in
-                CareDetailView(result: result)
-            }
+            .navigationDestination(for: CareResult.self) { CareDetailView(result: $0) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { monitor.refresh() } label: { Image(systemName: "arrow.clockwise") }
@@ -85,10 +86,7 @@ private struct ReadinessCard: View {
     let scanning: Bool
     let refresh: () -> Void
 
-    private var accent: Color {
-        score.status == .good ? .cyan : .yellow
-    }
-
+    private var accent: Color { score.status == .good ? .cyan : .yellow }
     private var scoreLabel: String {
         switch score.value {
         case 90...: return "Looking good"
@@ -110,21 +108,14 @@ private struct ReadinessCard: View {
                 ZStack {
                     Circle().stroke(.white.opacity(0.12), lineWidth: 12)
                     Circle().trim(from: 0, to: Double(score.value) / 100).stroke(accent, style: StrokeStyle(lineWidth: 12, lineCap: .round)).rotationEffect(.degrees(-90))
-                    Image(systemName: score.status == .good ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
-                        .font(.title)
-                        .foregroundStyle(.white)
+                    Image(systemName: score.status == .good ? "checkmark.shield.fill" : "exclamationmark.shield.fill").font(.title).foregroundStyle(.white)
                 }
                 .frame(width: 110, height: 110)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Care readiness \(score.value) percent, \(scoreLabel)")
             }
             Button(action: refresh) {
-                Label(scanning ? "Scanning…" : "Run safe check", systemImage: scanning ? "hourglass" : "checkmark.shield.fill")
-                    .frame(maxWidth: .infinity)
+                Label(scanning ? "Scanning…" : "Run safe check", systemImage: scanning ? "hourglass" : "checkmark.shield.fill").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.cyan)
-            .disabled(scanning)
+            .buttonStyle(.borderedProminent).tint(.cyan).disabled(scanning)
         }
         .padding(20)
         .background(LinearGradient(colors: [.blue.opacity(0.36), .black.opacity(0.9)], startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -133,34 +124,53 @@ private struct ReadinessCard: View {
     }
 }
 
+private struct ActionPlanSection: View {
+    let actions: [CareAction]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("NEXT BEST ACTIONS").font(.caption.weight(.bold)).foregroundStyle(.cyan)
+                Spacer()
+                Text("USER CONTROLLED").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+            }
+            ForEach(actions) { action in
+                HStack(spacing: 12) {
+                    Image(systemName: action.symbol).font(.headline).frame(width: 36, height: 36)
+                        .background(.cyan.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 12))
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(action.title).font(.subheadline.weight(.bold))
+                            Spacer()
+                            Text(action.priority.label).font(.caption2.weight(.bold)).foregroundStyle(action.priority == .urgent ? .red : action.priority == .recommended ? .yellow : .cyan)
+                        }
+                        Text(action.detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(12).background(ZobopTheme.panel).clipShape(RoundedRectangle(cornerRadius: 18))
+            }
+        }
+    }
+}
+
 private struct CareCard: View {
     let result: CareResult
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: result.area.symbol)
-                .font(.title3.bold())
-                .foregroundStyle(.cyan)
-                .frame(width: 44, height: 44)
-                .background(.white.opacity(0.07))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+            Image(systemName: result.area.symbol).font(.title3.bold()).foregroundStyle(.cyan).frame(width: 44, height: 44)
+                .background(.white.opacity(0.07)).clipShape(RoundedRectangle(cornerRadius: 14))
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(result.title).font(.headline)
                     Spacer()
-                    Text(result.status.rawValue)
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(result.status == .attention ? .yellow : result.status == .unavailable ? .secondary : .cyan)
+                    Text(result.status.rawValue).font(.caption.weight(.bold)).foregroundStyle(result.status == .attention ? .yellow : result.status == .unavailable ? .secondary : .cyan)
                 }
                 Text(result.detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
         }
-        .padding(14)
-        .background(ZobopTheme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(14).background(ZobopTheme.panel).clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
 
