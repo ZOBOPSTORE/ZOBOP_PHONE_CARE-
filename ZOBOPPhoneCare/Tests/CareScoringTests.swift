@@ -15,9 +15,10 @@ final class CareScoringTests: XCTestCase {
         let score = CareScoring.makeScore(snapshot: snapshot)
         XCTAssertEqual(score.value, 100)
         XCTAssertEqual(score.status, .good)
+        XCTAssertEqual(score.summary, "Your iPhone looks well maintained")
     }
 
-    func testCriticalBatteryAndStorageArePenalized() {
+    func testLowBatteryAndStorageArePenalizedDeterministically() {
         let snapshot = HealthSnapshot(
             batteryLevel: 8,
             batteryState: "Unplugged",
@@ -30,6 +31,35 @@ final class CareScoringTests: XCTestCase {
         let score = CareScoring.makeScore(snapshot: snapshot)
         XCTAssertEqual(score.value, 42)
         XCTAssertEqual(score.status, .attention)
+        XCTAssertEqual(score.summary, "Battery critically low")
+    }
+
+    func testLowPowerModeAndUnavailableICloudAreIncluded() {
+        let snapshot = HealthSnapshot(
+            batteryLevel: 50,
+            batteryState: "Unplugged",
+            freeStorageBytes: 100,
+            totalStorageBytes: 200,
+            lowPowerMode: true,
+            icloudAvailable: false
+        )
+
+        let score = CareScoring.makeScore(snapshot: snapshot)
+        XCTAssertEqual(score.value, 93)
+        XCTAssertEqual(score.status, .good)
+    }
+
+    func testStoragePenaltyUsesFreeSpaceThresholds() {
+        let snapshot = HealthSnapshot(
+            batteryLevel: 80,
+            batteryState: "Unplugged",
+            freeStorageBytes: 30,
+            totalStorageBytes: 200,
+            lowPowerMode: false,
+            icloudAvailable: true
+        )
+
+        XCTAssertEqual(CareScoring.makeScore(snapshot: snapshot).value, 92)
     }
 
     func testScoreNeverDropsBelowZero() {
