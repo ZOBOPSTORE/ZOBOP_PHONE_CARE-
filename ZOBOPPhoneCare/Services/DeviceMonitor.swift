@@ -44,7 +44,41 @@ final class DeviceMonitor: ObservableObject {
             icloudAvailable: iCloudAvailable
         )
         lastUpdated = Date()
+        publishWidgetSnapshot()
         isScanning = false
+    }
+
+    private func publishWidgetSnapshot() {
+        let readiness = careReadiness
+        let label: String
+        switch readiness {
+        case 90...: label = "Looking good"
+        case 70..<90: label = "Needs attention"
+        default: label = "Check recommended"
+        }
+
+        WidgetSnapshotStore.shared.save(
+            WidgetCareSnapshot(
+                readiness: readiness,
+                label: label,
+                batteryLevel: snapshot.batteryLevel,
+                storageFreeBytes: snapshot.freeStorageBytes,
+                updatedAt: lastUpdated ?? .now
+            )
+        )
+    }
+
+    private var careReadiness: Int {
+        let statuses = results.map(\.status)
+        guard !statuses.isEmpty else { return 0 }
+        let values = statuses.map { status -> Int in
+            switch status {
+            case .good: return 100
+            case .attention: return 70
+            case .unavailable: return 45
+            }
+        }
+        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
     }
 
     var results: [CareResult] {
