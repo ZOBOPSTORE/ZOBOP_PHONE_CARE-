@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject private var monitor: DeviceMonitor
     @State private var selectedTab = 0
 
     var body: some View {
@@ -28,12 +27,15 @@ private struct DashboardView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     HeaderView(lastUpdated: monitor.lastUpdated)
-                    ReadinessCard(snapshot: monitor.snapshot, scanning: monitor.isScanning) {
+                    ReadinessCard(results: monitor.results, scanning: monitor.isScanning) {
                         monitor.refresh()
                     }
                     LazyVStack(spacing: 12) {
                         ForEach(monitor.results) { result in
-                            CareCard(result: result)
+                            NavigationLink(value: result) {
+                                CareCard(result: result)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -41,6 +43,9 @@ private struct DashboardView: View {
             }
             .background(ZobopTheme.background.ignoresSafeArea())
             .navigationTitle("ZOBOP iPhone Care")
+            .navigationDestination(for: CareResult.self) { result in
+                CareDetailView(result: result)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { monitor.refresh() } label: { Image(systemName: "arrow.clockwise") }
@@ -52,6 +57,7 @@ private struct DashboardView: View {
 
 private struct HeaderView: View {
     let lastUpdated: Date?
+
     var body: some View {
         HStack(spacing: 14) {
             ZStack {
@@ -74,16 +80,28 @@ private struct HeaderView: View {
 }
 
 private struct ReadinessCard: View {
-    let snapshot: HealthSnapshot
+    let results: [CareResult]
     let scanning: Bool
     let refresh: () -> Void
 
     private var score: Int {
-        var score = 80
-        if snapshot.batteryLevel != nil { score += 8 }
-        if snapshot.freeStorageBytes != nil { score += 6 }
-        if snapshot.icloudAvailable { score += 6 }
-        return min(score, 100)
+        guard !results.isEmpty else { return 0 }
+        let values = results.map { result -> Int in
+            switch result.status {
+            case .good: return 100
+            case .attention: return 70
+            case .unavailable: return 45
+            }
+        }
+        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
+    }
+
+    private var scoreLabel: String {
+        switch score {
+        case 90...: return "Looking good"
+        case 70..<90: return "Needs attention"
+        default: return "Check recommended"
+        }
     }
 
     var body: some View {
@@ -92,13 +110,15 @@ private struct ReadinessCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("CARE READINESS").font(.caption.weight(.bold)).foregroundStyle(.cyan)
                     Text("\(score)%").font(.system(size: 54, weight: .black, design: .rounded))
+                    Text(scoreLabel).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 ZStack {
                     Circle().stroke(.white.opacity(0.12), lineWidth: 12)
                     Circle().trim(from: 0, to: Double(score) / 100).stroke(.cyan, style: StrokeStyle(lineWidth: 12, lineCap: .round)).rotationEffect(.degrees(-90))
                     Image(systemName: "iphone.gen3").font(.title).foregroundStyle(.white)
-                }.frame(width: 110, height: 110)
+                }
+                .frame(width: 110, height: 110)
             }
             Button(action: refresh) {
                 Label(scanning ? "Scanning…" : "Run safe check", systemImage: scanning ? "hourglass" : "checkmark.shield.fill")
@@ -117,6 +137,7 @@ private struct ReadinessCard: View {
 
 private struct CareCard: View {
     let result: CareResult
+
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: result.area.symbol)
@@ -126,9 +147,18 @@ private struct CareCard: View {
                 .background(.white.opacity(0.07))
                 .clipShape(RoundedRectangle(cornerRadius: 14))
             VStack(alignment: .leading, spacing: 4) {
-                HStack { Text(result.title).font(.headline); Spacer(); Text(result.status.rawValue).font(.caption.weight(.bold)).foregroundStyle(result.status == .attention ? .yellow : .cyan) }
+                HStack {
+                    Text(result.title).font(.headline)
+                    Spacer()
+                    Text(result.status.rawValue)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(result.status == .attention ? .yellow : result.status == .unavailable ? .secondary : .cyan)
+                }
                 Text(result.detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.tertiary)
         }
         .padding(14)
         .background(ZobopTheme.panel)
