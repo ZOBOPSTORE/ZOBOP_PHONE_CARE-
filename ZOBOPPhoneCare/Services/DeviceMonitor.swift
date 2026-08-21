@@ -8,6 +8,10 @@ final class DeviceMonitor: ObservableObject {
     @Published private(set) var lastUpdated: Date?
     @Published private(set) var isScanning = false
 
+    var careScore: CareScore {
+        CareScoring.makeScore(snapshot: snapshot)
+    }
+
     init() {
         UIDevice.current.isBatteryMonitoringEnabled = true
         refresh()
@@ -49,36 +53,16 @@ final class DeviceMonitor: ObservableObject {
     }
 
     private func publishWidgetSnapshot() {
-        let readiness = careReadiness
-        let label: String
-        switch readiness {
-        case 90...: label = "Looking good"
-        case 70..<90: label = "Needs attention"
-        default: label = "Check recommended"
-        }
-
+        let score = careScore
         WidgetSnapshotStore.shared.save(
             WidgetCareSnapshot(
-                readiness: readiness,
-                label: label,
+                readiness: score.value,
+                label: score.summary,
                 batteryLevel: snapshot.batteryLevel,
                 storageFreeBytes: snapshot.freeStorageBytes,
                 updatedAt: lastUpdated ?? .now
             )
         )
-    }
-
-    private var careReadiness: Int {
-        let statuses = results.map(\.status)
-        guard !statuses.isEmpty else { return 0 }
-        let values = statuses.map { status -> Int in
-            switch status {
-            case .good: return 100
-            case .attention: return 70
-            case .unavailable: return 45
-            }
-        }
-        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
     }
 
     var results: [CareResult] {
@@ -99,7 +83,7 @@ final class DeviceMonitor: ObservableObject {
         return [
             CareResult(area: .battery, title: CareArea.battery.rawValue, detail: batteryText, status: batteryStatus),
             CareResult(area: .storage, title: CareArea.storage.rawValue, detail: freeText + ". iOS apps cannot delete other apps' files; this tool guides you to user-controlled cleanup.", status: storageStatus),
-            CareResult(area: .performance, title: CareArea.performance.rawValue, detail: snapshot.lowPowerMode ? "Low Power Mode is enabled. Some performance is intentionally reduced." : "No system-wide boost is available to third-party apps. Guidance only.", status: .good),
+            CareResult(area: .performance, title: CareArea.performance.rawValue, detail: snapshot.lowPowerMode ? "Low Power Mode is enabled. Some performance is intentionally reduced." : "No system-wide boost is available to third-party apps. Guidance only.", status: snapshot.lowPowerMode ? .attention : .good),
             CareResult(area: .security, title: CareArea.security.rawValue, detail: "Review privacy, software updates, and app permissions in Settings. ZOBOP does not claim access to protected security state.", status: .good),
             CareResult(area: .system, title: CareArea.system.rawValue, detail: "System optimization is limited to Apple-controlled settings and safe recommendations.", status: .good),
             CareResult(area: .icloud, title: CareArea.icloud.rawValue, detail: snapshot.icloudAvailable ? "iCloud identity is available to the app." : "iCloud identity is not available to the app. Check your Apple Account and app permissions.", status: snapshot.icloudAvailable ? .good : .attention)
