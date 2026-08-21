@@ -1,6 +1,6 @@
 import Foundation
 
-enum CareArea: String, CaseIterable, Identifiable {
+enum CareArea: String, CaseIterable, Identifiable, Hashable {
     case battery = "Battery Health"
     case storage = "Storage Cleaner"
     case performance = "Performance Boost"
@@ -9,6 +9,7 @@ enum CareArea: String, CaseIterable, Identifiable {
     case icloud = "iCloud Manager"
 
     var id: String { rawValue }
+
     var symbol: String {
         switch self {
         case .battery: return "battery.100percent"
@@ -39,14 +40,14 @@ struct HealthSnapshot: Equatable {
     )
 }
 
-struct CareResult: Identifiable, Equatable {
+struct CareResult: Identifiable, Equatable, Hashable {
     let id = UUID()
     let area: CareArea
     let title: String
     let detail: String
     let status: Status
 
-    enum Status: String {
+    enum Status: String, Hashable {
         case good = "Good"
         case attention = "Attention"
         case unavailable = "Unavailable"
