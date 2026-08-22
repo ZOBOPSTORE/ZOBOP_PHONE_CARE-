@@ -3,15 +3,12 @@ import SwiftUI
 struct CareDetailView: View {
     let result: CareResult
 
-    private var actionTitle: String {
-        switch result.area {
-        case .battery: return "Open app settings"
-        case .storage: return "Open app settings"
-        case .performance: return "Open app settings"
-        case .security: return "Open app settings"
-        case .system: return "Open app settings"
-        case .icloud: return "Open app settings"
-        }
+    private var freeRecommendations: [CareRecommendation] {
+        Array(result.area.recommendations.prefix(2))
+    }
+
+    private var premiumRecommendations: [CareRecommendation] {
+        Array(result.area.recommendations.dropFirst(2))
     }
 
     var body: some View {
@@ -38,30 +35,21 @@ struct CareDetailView: View {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.cyan)
 
-                VStack(spacing: 12) {
-                    ForEach(result.area.recommendations) { item in
-                        HStack(alignment: .top, spacing: 14) {
-                            Image(systemName: item.symbol)
+                RecommendationList(items: freeRecommendations)
+
+                if !premiumRecommendations.isEmpty {
+                    PremiumAccessGate(
+                        title: "Unlock the complete care plan",
+                        subtitle: "Premium adds the remaining recommendations and deeper guidance for this area."
+                    ) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Label("PREMIUM RECOMMENDATIONS", systemImage: "crown.fill")
+                                .font(.caption.weight(.bold))
                                 .foregroundStyle(.cyan)
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.title).font(.headline)
-                                Text(item.detail).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 0)
+                            RecommendationList(items: premiumRecommendations)
                         }
-                        .padding(14)
-                        .background(ZobopTheme.panel)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
                 }
-
-                Button(action: CareAction.openAppSettings) {
-                    Label(actionTitle, systemImage: "gearshape.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.cyan)
 
                 Text("ZOBOP opens only supported public iOS destinations. It does not bypass permissions or control protected system settings.")
                     .font(.caption2)
@@ -73,5 +61,29 @@ struct CareDetailView: View {
         }
         .background(ZobopTheme.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct RecommendationList: View {
+    let items: [CareRecommendation]
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ForEach(items) { item in
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: item.symbol)
+                        .foregroundStyle(.cyan)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title).font(.headline)
+                        Text(item.detail).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(14)
+                .background(ZobopTheme.panel)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+        }
     }
 }
