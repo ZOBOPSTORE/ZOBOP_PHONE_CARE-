@@ -50,9 +50,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.zobop.phonecare.widget
-        INFOPLIST_KEY_CFBundleDisplayName: ZOBOP Care
-        INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier: com.apple.widgetkit-extension
-        INFOPLIST_KEY_NSExtension_NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ZOBOPCareWidgetBundle
+        PRODUCT_NAME: ZOBOP Care
+        INFOPLIST_FILE: ZOBOPPhoneCare/Widget/Info.plist
         CODE_SIGN_ENTITLEMENTS: ZOBOPPhoneCare/Widget/ZOBOPCareWidget.entitlements
     entitlements:
       path: ZOBOPPhoneCare/Widget/ZOBOPCareWidget.entitlements
