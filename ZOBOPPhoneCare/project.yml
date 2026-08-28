@@ -36,14 +36,21 @@ targets:
     sources:
       - path: Widget
       - path: Models/WidgetCareSnapshot.swift
+      - path: Services/WidgetSnapshotStore.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.zobop.phonecare.widget
+        PRODUCT_NAME: ZOBOP Care
+        INFOPLIST_FILE: Widget/Info.plist
         CODE_SIGN_ENTITLEMENTS: Widget/ZOBOPCareWidget.entitlements
     entitlements:
       path: Widget/ZOBOPCareWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.zobop.phonecare
     dependencies:
       - target: ZOBOPPhoneCare
+        embed: true
 schemes:
   ZOBOPPhoneCare:
     build:
